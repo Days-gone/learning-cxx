@@ -10,6 +10,10 @@ struct Tensor4D {
     Tensor4D(unsigned int const shape_[4], T const *data_) {
         unsigned int size = 1;
         // TODO: 填入正确的 shape 并计算 size
+        for (int i = 0; i < 4; ++i) {
+            shape[i] = shape_[i];
+            size *= shape[i];
+        }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
@@ -26,8 +30,47 @@ struct Tensor4D {
     // `others` 长度为 1 但 `this` 长度不为 1 的维度将发生广播计算。
     // 例如，`this` 形状为 `[1, 2, 3, 4]`，`others` 形状为 `[1, 2, 1, 4]`，
     // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
+
+    T &get_element(unsigned int i, unsigned int j, unsigned int k, unsigned int l) {
+        if (i >= shape[0] || j >= shape[1] ||
+            k >= shape[2] || l >= shape[3]) {
+            throw std::out_of_range("Index out of range.");
+        }
+        return data[i * shape[1] * shape[2] * shape[3] +
+                    j * shape[2] * shape[3] +
+                    k * shape[3] + l];
+    }
+    T const &get_element(unsigned int i, unsigned int j, unsigned int k, unsigned int l) const {
+        if (i >= shape[0] || j >= shape[1] ||
+            k >= shape[2] || l >= shape[3]) {
+            throw std::out_of_range("Index out of range.");
+        }
+        return data[i * shape[1] * shape[2] * shape[3] +
+                    j * shape[2] * shape[3] +
+                    k * shape[3] + l];
+    }
+
     Tensor4D &operator+=(Tensor4D const &others) {
-        // TODO: 实现单向广播的加法
+        for (int i = 0; i < 4; i++) {
+            if (shape[i] != others.shape[i] && shape[i] != 1 && others.shape[i] != 1) {
+                throw std::invalid_argument("Shape mismatch for addition.");
+            }
+        }
+        for (unsigned int dim = 0; dim < shape[0]; ++dim) {
+            for (unsigned int row = 0; row < shape[1]; ++row) {
+                for (unsigned int col = 0; col < shape[2]; ++col) {
+                    for (unsigned int depth = 0; depth < shape[3]; ++depth) {
+                        T &this_element = get_element(dim, row, col, depth);
+                        T other_element = others.get_element(
+                            dim % others.shape[0],
+                            row % others.shape[1],
+                            col % others.shape[2],
+                            depth % others.shape[3]);
+                        this_element += other_element;
+                    }
+                }
+            }
+        }
         return *this;
     }
 };
